@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tanya Ustadz — Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #050505;
+    --surface: #0c0c0c;
+    --border: rgba(255,255,255,0.09);
+    --text: #f2f2f0;
+    --text-dim: #8b8b88;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Fraunces', serif;
+    --sans: 'Inter', sans-serif;
+  }
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html,body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .streak{
+    position: fixed;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 70%);
+    filter: blur(40px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .streak.s1{
+    width: 800px; height: 120px;
+    top: -50px; left: -260px;
+    transform: rotate(18deg);
+    animation: drift1 26s ease-in-out infinite;
+  }
+  .streak.s2{
+    width: 600px; height: 90px;
+    bottom: 6%; right: -240px;
+    transform: rotate(-20deg);
+    animation: drift2 30s ease-in-out infinite;
+  }
+  @keyframes drift1{
+    0%,100%{ transform: translate(0,0) rotate(18deg); }
+    50%{ transform: translate(50px,30px) rotate(22deg); }
+  }
+  @keyframes drift2{
+    0%,100%{ transform: translate(0,0) rotate(-20deg); }
+    50%{ transform: translate(-40px,-20px) rotate(-16deg); }
+  }
+
+  main{
+    position: relative;
+    z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 18px 48px;
+  }
+
+  .topbar{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .back{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 11px;
+  }
+  .back:active{ border-color: rgba(255,255,255,0.25); }
+
+  h1{
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+  .sub{
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 22px;
+  }
+
+  #canvasWrap{
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  canvas{
+    width: 100%;
+    display: block;
+    background: #000;
+  }
+
+  .controls{ margin-top: 18px; }
+
+  textarea{
+    width: 100%;
+    min-height: 74px;
+    resize: vertical;
+    padding: 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 15px;
+    font-family: var(--sans);
+  }
+  textarea:focus{ outline: none; border-color: rgba(255,255,255,0.35); }
+
+  .charcount{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 6px;
+    letter-spacing: 0.03em;
+  }
+  .charcount.limit{ color: #f2f2f0; font-weight: 600; }
+
+  button#dl{
+    width: 100%;
+    margin-top: 14px;
+    padding: 15px;
+    border: 1px solid var(--text);
+    border-radius: 10px;
+    background: var(--text);
+    color: #000;
+    font-size: 14px;
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#dl:active{ opacity: 0.8; }
+</style>
+</head>
+<body>
+
+  <div class="streak s1"></div>
+  <div class="streak s2"></div>
+
+  <main>
+    <div class="topbar">
+      <a class="back" onclick="location.replace('index.html')">⇱ kembali</a>
+    </div>
+    <h1>Tanya Ustadz</h1>
+    <p class="sub">Ketik pertanyaan, teks otomatis nyesuain ukuran kotak.</p>
+
+    <div id="canvasWrap">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <textarea id="textInput" maxlength="160" placeholder="Ketik pertanyaan di sini..."></textarea>
+      <div class="charcount" id="charCount">0 / 160</div>
+      <button id="dl">Download Gambar</button>
+    </div>
+  </main>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const textInput = document.getElementById('textInput');
+const charCount = document.getElementById('charCount');
+
+// ====== SETTING TEMPLATE ======
+// Semua posisi pakai PERSENTASE (0 sampai 1) dari ukuran asli foto,
+// jadi otomatis nyesuain berapa pun ukuran fotonya, ga gepeng.
+// Ganti IMG_SRC + angka di bawah kalau mau bikin template foto lain.
+const IMG_SRC = "ustadz.jpg";
+const HEADER_PCT = { x: 0.1111, y: 0.0186, w: 0.7778, h: 0.1095, label: "Soalan" };
+const BOX_PCT    = { x: 0.1111, y: 0.1280, w: 0.7778, h: 0.2505 };
+const PADDING_PCT = 0.026; // padding dalam kotak, relatif ke lebar foto
+// ====== END SETTING ======
+
+let HEADER, BOX, PADDING;
+
+const bgImage = new Image();
+bgImage.src = IMG_SRC;
+
+let ready = false;
+bgImage.onload = () => {
+  // canvas otomatis ambil ukuran ASLI foto (nggak dipaksa 1080x1078 lagi)
+  canvas.width = bgImage.naturalWidth;
+  canvas.height = bgImage.naturalHeight;
+
+  HEADER = {
+    x: HEADER_PCT.x * canvas.width,
+    y: HEADER_PCT.y * canvas.height,
+    w: HEADER_PCT.w * canvas.width,
+    h: HEADER_PCT.h * canvas.height,
+    label: HEADER_PCT.label
+  };
+  BOX = {
+    x: BOX_PCT.x * canvas.width,
+    y: BOX_PCT.y * canvas.height,
+    w: BOX_PCT.w * canvas.width,
+    h: BOX_PCT.h * canvas.height
+  };
+  PADDING = PADDING_PCT * canvas.width;
+
+  ready = true;
+  render();
+};
+
+// Bungkus teks per kata; kalau 1 kata sendiri kepanjangan, dipaksa patah per karakter
+function wrapLines(text, maxWidth, fontSize) {
+  ctx.font = `600 ${fontSize}px sans-serif`;
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+
+  for (let word of words) {
+    while (ctx.measureText(word).width > maxWidth) {
+      let cut = 1;
+      while (cut <= word.length && ctx.measureText(word.slice(0, cut)).width <= maxWidth) cut++;
+      cut = Math.max(1, cut - 1);
+      const part = word.slice(0, cut);
+      if (current) { lines.push(current); current = ""; }
+      lines.push(part);
+      word = word.slice(cut);
+    }
+    const test = current ? current + " " + word : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function fitText(text, maxWidth, maxHeight) {
+  const maxFont = 52;
+  const minFont = 14;
+  let fontSize = maxFont;
+  let lines = [];
+  while (fontSize >= minFont) {
+    lines = wrapLines(text, maxWidth, fontSize);
+    const lineHeight = fontSize * 1.28;
+    if (lines.length * lineHeight <= maxHeight) {
+      return { fontSize, lines, lineHeight };
+    }
+    fontSize -= 2;
+  }
+  // fallback keras: kalau di font minimum pun kepanjangan, potong baris yang muat
+  const lineHeight = minFont * 1.28;
+  const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+  lines = wrapLines(text, maxWidth, minFont).slice(0, maxLines);
+  return { fontSize: minFont, lines, lineHeight };
+}
+
+function roundRectTop(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.arcTo(x + w, y, x + w, y + r, r);
+  c.lineTo(x + w, y + h);
+  c.lineTo(x, y + h);
+  c.lineTo(x, y + r);
+  c.arcTo(x, y, x + r, y, r);
+  c.closePath();
+}
+function roundRectBottom(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x, y);
+  c.lineTo(x + w, y);
+  c.lineTo(x + w, y + h - r);
+  c.arcTo(x + w, y + h, x + w - r, y + h, r);
+  c.lineTo(x + r, y + h);
+  c.arcTo(x, y + h, x, y + h - r, r);
+  c.closePath();
+}
+
+function render() {
+  if (!ready) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(10,10,10,0.92)";
+  roundRectTop(ctx, HEADER.x, HEADER.y, HEADER.w, HEADER.h, 18);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "700 34px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(HEADER.label, HEADER.x + HEADER.w / 2, HEADER.y + HEADER.h / 2 + 2);
+
+  ctx.fillStyle = "#ffffff";
+  roundRectBottom(ctx, BOX.x, BOX.y, BOX.w, BOX.h, 18);
+  ctx.fill();
+
+  const text = textInput.value.trim();
+  if (text) {
+    const maxWidth = BOX.w - PADDING * 2;
+    const maxHeight = BOX.h - PADDING * 2;
+    const { fontSize, lines, lineHeight } = fitText(text, maxWidth, maxHeight);
+
+    ctx.fillStyle = "#111111";
+    ctx.font = `600 ${fontSize}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const totalHeight = lines.length * lineHeight;
+    const startY = BOX.y + BOX.h / 2 - totalHeight / 2 + lineHeight / 2;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, BOX.x + BOX.w / 2, startY + i * lineHeight);
+    });
+  }
+}
+
+textInput.addEventListener('input', () => {
+  charCount.textContent = `${textInput.value.length} / 160`;
+  charCount.classList.toggle('limit', textInput.value.length >= 150);
+  render();
+});
+
+document.getElementById('dl').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'tanya-ustadz.jpg';
+  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.click();
+});
+</script>
+</body>
+</html>

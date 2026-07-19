@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebView Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050505; --surface:#0c0c0c; --border:rgba(255,255,255,0.09);
+    --text:#f2f2f0; --text-dim:#8b8b88;
+    --mono:'JetBrains Mono',monospace; --serif:'Fraunces',serif; --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+  .streak{position:fixed;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,255,255,0.12) 0%,rgba(255,255,255,0) 70%);filter:blur(40px);pointer-events:none;z-index:0;}
+  .streak.s1{width:800px;height:120px;top:-50px;left:-260px;transform:rotate(18deg);animation:drift1 26s ease-in-out infinite;}
+  .streak.s2{width:600px;height:90px;bottom:6%;right:-240px;transform:rotate(-20deg);animation:drift2 30s ease-in-out infinite;}
+  @keyframes drift1{0%,100%{transform:translate(0,0) rotate(18deg);}50%{transform:translate(50px,30px) rotate(22deg);}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) rotate(-20deg);}50%{transform:translate(-40px,-20px) rotate(-16deg);}}
+  main{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:20px 18px 48px;}
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .back{font-family:var(--mono);font-size:12px;color:var(--text-dim);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:7px 11px;}
+  .back:active{border-color:rgba(255,255,255,0.25);}
+  h1{font-family:var(--serif);font-weight:500;font-size:24px;margin-bottom:4px;}
+  .sub{font-size:13px;color:var(--text-dim);margin-bottom:22px;}
+  .form-group{margin-bottom:20px;}
+  label{display:block;font-family:var(--mono);font-size:12px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.03em;}
+  input[type="text"],input[type="file"]{width:100%;padding:13px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:15px;font-family:var(--sans);}
+  input[type="text"]:focus,input[type="file"]:focus{outline:none;border-color:rgba(255,255,255,0.35);}
+  input[type="file"]::file-selector-button{background:var(--text);color:#000;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;margin-right:10px;}
+  .thumbnail-preview{width:100%;max-height:200px;border-radius:10px;border:1px solid var(--border);margin-top:10px;object-fit:contain;background:#111;}
+  .file-info{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:6px;}
+  .file-info.error{color:#ff4444;}
+  button{width:100%;margin-top:14px;padding:15px;border:1px solid var(--text);border-radius:10px;background:var(--text);color:#000;font-size:14px;font-family:var(--mono);letter-spacing:0.04em;text-transform:uppercase;font-weight:600;cursor:pointer;}
+  button:active{opacity:0.8;}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+  .error-msg{color:#ff4444;font-family:var(--mono);font-size:12px;margin-top:6px;display:none;}
+  input.error,input[type="file"].error{border-color:#ff4444!important;background:rgba(255,68,68,0.06);}
+  input.error:focus,input[type="file"].error:focus{border-color:#ff4444!important;}
+</style>
+</head>
+<body>
+
+  <div class="streak s1"></div>
+  <div class="streak s2"></div>
+
+  <main>
+    <div class="topbar"><a class="back" onclick="location.replace('index.html')">⇱ kembali</a></div>
+    <h1>WebView Builder</h1>
+    <p class="sub">Setup URL & nama APK.</p>
+
+    <div class="form-group">
+      <label for="urlInput">URL Website</label>
+      <input type="text" id="urlInput" placeholder="https://example.com">
+      <div class="error-msg" id="urlError">Harus ada URL</div>
+    </div>
+
+    <div class="form-group">
+      <label for="thumbnailInput">Thumbnail APK (Max 20MB)</label>
+      <input type="file" id="thumbnailInput" accept="image/*">
+      <img id="thumbPreview" class="thumbnail-preview" style="display:none;">
+      <div class="file-info" id="fileInfo"></div>
+      <div class="error-msg" id="thumbError">Harus ada foto</div>
+    </div>
+
+    <div class="form-group">
+      <label for="apkName">Nama APK</label>
+      <input type="text" id="apkName" placeholder="MyApp" maxlength="50">
+      <div class="error-msg" id="nameError">Harus ada nama</div>
+    </div>
+
+    <button id="generateBtn">Generate Config</button>
+  </main>
+
+<script>
+const urlInput = document.getElementById('urlInput');
+const thumbnailInput = document.getElementById('thumbnailInput');
+const thumbPreview = document.getElementById('thumbPreview');
+const fileInfo = document.getElementById('fileInfo');
+const apkName = document.getElementById('apkName');
+const generateBtn = document.getElementById('generateBtn');
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+thumbnailInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  fileInfo.textContent = '';
+  fileInfo.classList.remove('error');
+  thumbPreview.style.display = 'none';
+
+  if (!file) return;
+
+  if (file.size > MAX_FILE_SIZE) {
+    fileInfo.textContent = `Error: File terlalu besar (${(file.size / 1024 / 1024).toFixed(1)}MB > 20MB)`;
+    fileInfo.classList.add('error');
+    thumbnailInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    thumbPreview.src = event.target.result;
+    thumbPreview.style.display = 'block';
+    fileInfo.textContent = `✓ ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+  };
+  reader.readAsDataURL(file);
+});
+
+const urlError = document.getElementById('urlError');
+const thumbError = document.getElementById('thumbError');
+const nameError = document.getElementById('nameError');
+
+function clearError(input, errorEl) {
+  input.classList.remove('error');
+  errorEl.style.display = 'none';
+}
+
+function showError(input, errorEl) {
+  input.classList.add('error');
+  errorEl.style.display = 'block';
+}
+
+urlInput.addEventListener('input', () => clearError(urlInput, urlError));
+apkName.addEventListener('input', () => clearError(apkName, nameError));
+thumbnailInput.addEventListener('change', () => {
+  if (thumbnailInput.files.length > 0) {
+    clearError(thumbnailInput, thumbError);
+  }
+});
+
+generateBtn.addEventListener('click', () => {
+  const url = urlInput.value.trim();
+  const name = apkName.value.trim();
+  let hasError = false;
+
+  clearError(urlInput, urlError);
+  clearError(apkName, nameError);
+  clearError(thumbnailInput, thumbError);
+
+  if (!url) {
+    showError(urlInput, urlError);
+    hasError = true;
+  } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    showError(urlInput, urlError);
+    urlError.textContent = 'URL harus diawali http:// atau https://';
+    hasError = true;
+  }
+
+  if (!name) {
+    showError(apkName, nameError);
+    hasError = true;
+  }
+
+  if (thumbnailInput.files.length === 0) {
+    showError(thumbnailInput, thumbError);
+    hasError = true;
+  }
+
+  if (hasError) return;
+
+  const config = {
+    url: url,
+    appName: name,
+    thumbnail: thumbPreview.style.display !== 'none' ? thumbPreview.src : null,
+    createdAt: new Date().toISOString()
+  };
+
+  const configJSON = JSON.stringify(config, null, 2);
+  const blob = new Blob([configJSON], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${name}_config.json`;
+  link.click();
+});
+</script>
+</body>
+</html>

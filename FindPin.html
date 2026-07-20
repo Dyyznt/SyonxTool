@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pinterest Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400..600&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #050505;
+    color: #f2f2f0;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .streak {
+    position: fixed;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.10), transparent 70%);
+    filter: blur(40px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .streak-1 {
+    width: 800px; height: 120px;
+    top: 8%; left: -10%;
+    transform: rotate(18deg);
+    animation: drift1 26s ease-in-out infinite;
+  }
+  .streak-2 {
+    width: 600px; height: 90px;
+    bottom: 10%; right: -15%;
+    transform: rotate(-20deg);
+    animation: drift2 30s ease-in-out infinite;
+  }
+  @keyframes drift1 {
+    0%, 100% { transform: translate(0,0) rotate(18deg); }
+    50% { transform: translate(30px, 20px) rotate(18deg); }
+  }
+  @keyframes drift2 {
+    0%, 100% { transform: translate(0,0) rotate(-20deg); }
+    50% { transform: translate(-25px, -15px) rotate(-20deg); }
+  }
+
+  .app {
+    width: 100%;
+    max-width: 480px;
+    padding: 20px 18px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .back-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: transparent;
+    color: #f2f2f0;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .back-btn:hover { border-color: rgba(255,255,255,0.2); }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #8b8b88;
+    margin-bottom: 20px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .search-input {
+    flex: 1;
+    min-height: 44px;
+    background: #0c0c0c;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 10px;
+    color: #f2f2f0;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 0 14px;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+  }
+  .search-input::placeholder { color: #8b8b88; }
+
+  .go-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #ffffff;
+    color: #111111;
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .go-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .go-btn:hover:not(:disabled) { background: #e8e8e6; }
+
+  .loader {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #8b8b88;
+    margin-bottom: 14px;
+  }
+  .loader.show { display: flex; }
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: #f2f2f0;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #ff6b6b;
+    margin-bottom: 14px;
+    min-height: 16px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .pin-card {
+    background: #0c0c0c;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .pin-img-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #050505;
+    overflow: hidden;
+  }
+  .pin-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .pin-body {
+    padding: 10px;
+  }
+  .pin-title {
+    font-size: 12px;
+    line-height: 1.35;
+    color: #f2f2f0;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pin-user {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #8b8b88;
+    margin-bottom: 10px;
+  }
+  .pin-download {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #ffffff;
+    color: #111111;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 0;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .pin-download:hover { background: #e8e8e6; }
+  .pin-download:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .refresh-btn {
+    width: 100%;
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: transparent;
+    color: #f2f2f0;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 10px;
+    padding: 12px 0;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .refresh-btn:hover { border-color: rgba(255,255,255,0.25); }
+  .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="streak streak-1"></div>
+<div class="streak streak-2"></div>
+
+<div class="app">
+  <div class="topbar">
+    <button class="back-btn" onclick="location.replace('index.html')">⇱ Back</button>
+  </div>
+
+  <h1>Pinterest Search</h1>
+  <p class="subtitle">Cari gambar di Pinterest dan unduh langsung.</p>
+
+  <div class="search-row">
+    <input type="text" id="queryInput" class="search-input" placeholder="Kata kunci pencarian..." />
+    <button class="go-btn" id="goBtn" onclick="searchPins()">Cari</button>
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <span>Mencari...</span>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="grid" id="resultGrid"></div>
+</div>
+
+<script>
+  const API_BASE = "https://api.ikyyxd.my.id/search/pinterest?apikey=kyzz&q=";
+  const MIN_RESULTS = 5;
+  const PROXIES = [
+    (u) => u,
+    (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+    (u) => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+    (u) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u)
+  ];
+
+  async function fetchJsonWithFallback(url) {
+    let lastErr;
+    for (const wrap of PROXIES) {
+      try {
+        const res = await fetch(wrap(url));
+        if (!res.ok) throw new Error("status " + res.status);
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
+  }
+
+  async function fetchBlobWithFallback(url) {
+    let lastErr;
+    for (const wrap of PROXIES) {
+      try {
+        const res = await fetch(wrap(url));
+        if (!res.ok) throw new Error("status " + res.status);
+        return await res.blob();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
+  }
+
+  async function searchPins() {
+    const input = document.getElementById('queryInput');
+    const goBtn = document.getElementById('goBtn');
+    const loader = document.getElementById('loader');
+    const statusMsg = document.getElementById('statusMsg');
+    const grid = document.getElementById('resultGrid');
+
+    const query = input.value.trim();
+    if (!query) {
+      statusMsg.textContent = "Silakan isi kata kunci pencarian terlebih dahulu.";
+      return;
+    }
+
+    goBtn.disabled = true;
+    loader.classList.add('show');
+    statusMsg.textContent = "";
+    grid.innerHTML = "";
+
+    try {
+      const data = await fetchJsonWithFallback(API_BASE + encodeURIComponent(query));
+
+      if (!data.status || !data.results || data.results.length === 0) {
+        statusMsg.textContent = data.message || "Tidak ada hasil ditemukan.";
+        return;
+      }
+
+      const results = data.results.slice(0, Math.max(MIN_RESULTS, Math.min(data.results.length, 20)));
+      renderPins(results, grid);
+
+      if (results.length < MIN_RESULTS) {
+        statusMsg.textContent = "Hasil ditemukan kurang dari " + MIN_RESULTS + " gambar.";
+      }
+    } catch (err) {
+      statusMsg.textContent = "Gagal memuat data: " + err.message;
+    } finally {
+      goBtn.disabled = false;
+      loader.classList.remove('show');
+    }
+  }
+
+  function renderPins(results, grid) {
+    grid.innerHTML = "";
+    results.forEach((pin, idx) => {
+      const card = document.createElement('div');
+      card.className = 'pin-card';
+
+      const title = pin.title || 'Tanpa judul';
+      const username = pin.user?.name || pin.user?.username || '-';
+
+      card.innerHTML = `
+        <div class="pin-img-wrap">
+          <img src="${pin.image_url}" alt="${title}" loading="lazy" />
+        </div>
+        <div class="pin-body">
+          <div class="pin-title">${title}</div>
+          <div class="pin-user">${username}</div>
+          <button class="pin-download" data-url="${pin.image_url}" data-name="pin-${idx}">Unduh</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('.pin-download').forEach(btn => {
+      btn.addEventListener('click', () => downloadImage(btn));
+    });
+  }
+
+  async function downloadImage(btn) {
+    const url = btn.dataset.url;
+    const name = btn.dataset.name;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Mengunduh...';
+
+    try {
+      const blob = await fetchBlobWithFallback(url);
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name + '.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      btn.textContent = 'Gagal';
+      setTimeout(() => { btn.textContent = originalText; }, 2000);
+    } finally {
+      btn.disabled = false;
+      if (btn.textContent === 'Mengunduh...') btn.textContent = originalText;
+    }
+  }
+
+  document.getElementById('queryInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchPins();
+  });
+</script>
+
+</body>
+</html>
